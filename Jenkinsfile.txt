@@ -1,0 +1,50 @@
+pipeline {
+    agent any
+    
+    environment {
+        DB_HOST = 'localhost'          // PostgreSQL server hostname or IP address
+        DB_PORT = '5432'               // PostgreSQL port
+        DB_NAME = 'my_database'        // Database name
+    }
+
+    stages {
+        stage('Execute SQL Query') {
+            steps {
+                script {
+                    // Define the SQL query you want to execute
+                    def sqlQuery = """
+                    -- Example: DROP the 'users' table
+                    DROP TABLE IF EXISTS users;
+
+                    -- Example: Update the data
+                    -- UPDATE users SET name = 'Jane Doe' WHERE name = 'John Doe';
+                    """
+
+                    // Use withCredentials to securely inject the credentials
+                    withCredentials([usernamePassword(credentialsId: 'postgres_credentials', passwordVariable: 'DB_PASS', usernameVariable: 'DB_USER')]) {
+                        // Run the SQL query using psql command with credentials
+                        sh """
+                        PGPASSWORD=${DB_PASS} psql -h ${DB_HOST} -p ${DB_PORT} -U ${DB_USER} -d ${DB_NAME} -c "${sqlQuery}"
+                        """
+                    }
+                }
+            }
+        }
+        
+        stage('Verify Changes') {
+            steps {
+                script {
+                    // Define a verification query to check if changes were made
+                    def verifyQuery = "SELECT * FROM users;"
+                    
+                    // Run the verification query
+                    withCredentials([usernamePassword(credentialsId: 'postgres_credentials', passwordVariable: 'DB_PASS', usernameVariable: 'DB_USER')]) {
+                        sh """
+                        PGPASSWORD=${DB_PASS} psql -h ${DB_HOST} -p ${DB_PORT} -U ${DB_USER} -d ${DB_NAME} -c "${verifyQuery}"
+                        """
+                    }
+                }
+            }
+        }
+    }
+}
